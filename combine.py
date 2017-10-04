@@ -69,6 +69,10 @@ for fn in os.listdir(spreadsheet_path):
 
         # title = '{}_{}'.format(fn.rsplit('.', 1)[0], ws.title)
         title = ws.title
+        if ws['C2'].value.strip().lower() == 'rack no.':
+            if ws['E2'].value.strip():
+                title = ws['E2'].value.strip()
+                print('New sheet title based on rack number found:', title)
         new_ws = new_wb.create_sheet(title)
         copy_worksheet(ws, new_ws)
 

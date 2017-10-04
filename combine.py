@@ -1,4 +1,5 @@
 import os
+import sys
 import openpyxl
 
 
@@ -39,52 +40,82 @@ def copy_worksheet(ws, new_ws):
         new_column.width = col_dim.width
 
 
-new_wb = openpyxl.Workbook()
+def combine(spreadsheet_path,
+            new_wb=None,
+            grep_values=None,
+            rack_profiles=True,
+            include_filename_in_sheetname=False,
+            set_print_area=True):
 
-spreadsheet_path = 'copied'
-grep_values = ('FWS', 'Lauer')
-matched_sheets = 0
+    if new_wb is None:
+        new_wb = openpyxl.Workbook()
+        del new_wb['Sheet']
 
-for fn in os.listdir(spreadsheet_path):
-    try:
-        wb = openpyxl.load_workbook(os.path.join(spreadsheet_path, fn))
-    except Exception as ex:
-        print('Failed to load: {}'.format(fn), ex)
-        continue
+    matched_sheets = []
 
-    for ws in wb.worksheets:
-        print('File: {} worksheet: {}'.format(fn, ws))
-        found = any(to_grep in str(cell.value)
-                    for row in ws.rows
-                    for cell in row
-                    if cell.value is not None
-                    for to_grep in grep_values
-                    )
-
-        if not found:
+    for fn in os.listdir(spreadsheet_path):
+        try:
+            wb = openpyxl.load_workbook(os.path.join(spreadsheet_path, fn))
+        except Exception as ex:
+            print('Failed to load: {}'.format(fn), ex)
             continue
 
-        print('Match')
-        matched_sheets += 1
+        for ws in wb.worksheets:
+            print('File: {} worksheet: {}'.format(fn, ws))
+            if grep_values is not None:
+                found = any(to_grep in str(cell.value)
+                            for row in ws.rows
+                            for cell in row
+                            if cell.value is not None
+                            for to_grep in grep_values
+                            )
 
-        # title = '{}_{}'.format(fn.rsplit('.', 1)[0], ws.title)
-        title = ws.title
-        if ws['C2'].value.strip().lower() == 'rack no.':
-            if ws['E2'].value.strip():
-                title = ws['E2'].value.strip()
-                print('New sheet title based on rack number found:', title)
-        new_ws = new_wb.create_sheet(title)
-        copy_worksheet(ws, new_ws)
+                if not found:
+                    continue
 
-        new_ws.print_area = new_ws.dimensions
-        new_ws.print_options.horizontalCentered = True
-        new_ws.print_options.verticalCentered = True
-        header_text = 'File: {} Sheet: {}'.format(fn.rsplit('.', 1)[0],
-                                                  ws.title)
-        new_ws.firstHeader.center.text = header_text
-        new_ws.page_setup.fitToPage = True
+                print('Match')
 
-    # break
+            if include_filename_in_sheetname:
+                title = '{}_{}'.format(fn.rsplit('.', 1)[0], ws.title)
+            else:
+                title = ws.title
 
-new_wb.save('test.xlsx')
-print('Matching sheet count: ', matched_sheets)
+            if rack_profiles:
+                if ws['C2'].value.strip().lower() == 'rack no.':
+                    if ws['E2'].value.strip():
+                        title = ws['E2'].value.strip()
+                        print('New sheet title based on rack number found:',
+                              title)
+
+            matched_sheets.append((fn, ws.title, title))
+            new_ws = new_wb.create_sheet(title)
+            copy_worksheet(ws, new_ws)
+
+            if set_print_area:
+                new_ws.print_area = new_ws.dimensions
+                new_ws.print_options.horizontalCentered = True
+                new_ws.print_options.verticalCentered = True
+                header_text = 'File: {} Sheet: {}'.format(fn.rsplit('.', 1)[0],
+                                                          ws.title)
+                new_ws.firstHeader.center.text = header_text
+                new_ws.page_setup.fitToPage = True
+
+    return matched_sheets, new_wb
+
+
+if __name__ == '__main__':
+    matched_sheets, new_wb = combine(spreadsheet_path='copied',
+                                     grep_values=('FWS', 'Lauer'),
+                                     rack_profiles=True,
+                                     include_filename_in_sheetname=False)
+    try:
+        output_fn = sys.argv[2]
+    except IndexError:
+        output_fn = 'combined.xlsx'
+
+    new_wb.save(output_fn)
+    print('Saved to', output_fn)
+
+    print('Matching sheets: ', len(matched_sheets))
+    for fn, title, new_title in matched_sheets:
+        print('\t', fn, ':', title, '->', new_title)

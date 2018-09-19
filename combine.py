@@ -81,7 +81,8 @@ def combine(spreadsheet_path,
                 title = ws.title
 
             if rack_profiles:
-                if ws['C2'].value.strip().lower() == 'rack no.':
+                c2 = ws['C2'].value
+                if c2 is not None and c2.strip().lower() == 'rack no.':
                     if ws['E2'].value.strip():
                         title = ws['E2'].value.strip()
                         print('New sheet title based on rack number found:',
@@ -105,7 +106,9 @@ def combine(spreadsheet_path,
 
 if __name__ == '__main__':
     matched_sheets, new_wb = combine(spreadsheet_path='copied',
-                                     grep_values=('FWS', 'Lauer'),
+                                     grep_values=('FWS', 'Lauer', 'Bong',
+                                                  'AEROTECH', 'Aerotech',
+                                                  'LVDT', 'Epaq'),
                                      rack_profiles=True,
                                      include_filename_in_sheetname=False)
     try:
